@@ -40,8 +40,9 @@ def rotation_matrix(v1, v2):
     rotation_matrix = np.array([[dot, -cross],[cross, dot]])
     return rotation_matrix
 
-def describe_loc(ref, P):
+def describe_loc(ref, P, noFacing=True):
     desc = []
+    details = []
     if ref[1] > P[1]:
         desc.append("north")
     elif ref[1] < P[1]:
@@ -51,7 +52,43 @@ def describe_loc(ref, P):
     elif ref[0] < P[0]:
         desc.append("east")
 
-    return "-".join(desc)
+    if len(desc) == 2:
+        if ref[1] > P[1]:
+            details.append(f"{ref[1] - P[1]} step to the north")
+        elif ref[1] < P[1]:
+            details.append(f"{P[1] - ref[1]} step to the south")
+        if ref[0] > P[0]:
+            details.append(f"{ref[0] - P[0]} step to the west")
+        elif ref[0] < P[0]:
+            details.append(f"{P[0] - ref[0]} step to the east")
+        pass
+        
+    elif len(desc) == 1:
+        if ref[1] > P[1]:
+            details.append(f"{ref[1] - P[1]} step to the north")
+        elif ref[1] < P[1]:
+            details.append(f"{P[1] - ref[1]} step to the south")
+        if ref[0] > P[0]:
+            details.append(f"{ref[0] - P[0]} step to the west")
+        elif ref[0] < P[0]:
+            details.append(f"{P[0] - ref[0]} step to the east")
+        pass
+
+    
+    tmp = "-".join(desc)
+    tmp2 = " and ".join(details)
+
+    if noFacing == False:
+        if "north" in tmp2:
+            return "north"
+        if "south" in tmp2:
+            return "south"
+        if "west" in tmp2:
+            return "west"
+        if "east" in tmp2:
+            return "east"
+        pass
+    return tmp2
 
 
 def describe_env(info):
@@ -69,17 +106,20 @@ def describe_env(info):
     facing = info['player_facing']
     target = (center[0] + facing[0], center[1] + facing[1])
     target = id_to_item[semantic[target]]
-    obs = "You face {} at your front.".format(target, describe_loc(np.array([0,0]),facing))
+    obs = "You face {} at your front. your facing is: {}".format(target, describe_loc(np.array([0,0]),facing, False))
     
+
+    #print(loc)
+
     for idx in np.unique(semantic):
         if idx==player_idx:
             continue
 
         smallest = np.unravel_index(np.argmin(np.where(semantic==idx, dist, np.inf)), semantic.shape)
-        obj_info_list.append((id_to_item[idx], dist[smallest], describe_loc(np.array([0,0]), smallest-center)))
+        obj_info_list.append((id_to_item[idx], dist[smallest], describe_loc(np.array([0,0]), smallest-center) ) )
 
     if len(obj_info_list)>0:
-        status_str = "You see:\n{}".format("\n".join(["- {} {} steps to your {}".format(name, dist, loc) for name, dist, loc in obj_info_list]))
+        status_str = "You see:\n{}".format("\n".join(["- {} {}".format(name, loc) for name, dist, loc in obj_info_list]))
     else:
         status_str = "You see nothing away from you."
     result += status_str + "\n\n"
@@ -125,7 +165,8 @@ def describe_frame(info, action):
         result+=describe_inventory(info)
         
         return result.strip()
-    except:
+    except Exception as e:
+        print(e)
         return "Error, you are out of the map."
 
 class Crafter(Env):
@@ -134,6 +175,9 @@ class Crafter(Env):
     default_steps = 10000
 
     def __init__(self, area=(64, 64), view=(9, 9), size=(64, 64), reward=True, length=10000, seed=None, max_steps=2):
+        print("************")
+        print(seed)
+        print("************")
         self.history = HistoryTracker(max_steps)
         self.action_list = ["Noop", "Move West", "Move East", "Move North", "Move South", "Do", \
     "Sleep", "Place Stone", "Place Table", "Place Furnace", "Place Plant", \
